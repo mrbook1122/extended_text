@@ -102,9 +102,26 @@ class ExtendedRenderParagraph extends _RenderParagraph
       _textPainter.text = _textCache;
     }    
     _layoutTextWithConstraints(constraints);
+    if (_textPainter.maxLines != null) {
+      int newLines = _textPainter.maxLines!;
+      final List<ui.LineMetrics> lines = _textPainter.computeLineMetrics();
+      for (int i = lines.length - 1; i > 0; i--) {
+        final ui.LineMetrics line = lines[i];
+        if (line.width > 0) {
+          break;
+        }
+        if (newLines > 1) {
+          newLines--;
+        }
+      }
+      if (newLines != _textPainter.maxLines) {
+        _textPainter.maxLines = newLines;
+        _layoutTextWithConstraints(constraints);
+      }
+    }
     positionInlineChildren(_textPainter.inlinePlaceholderBoxes!);
 
-    final Size textSize = _textPainter.size;
+    final Size textSize = Size(constraints.maxWidth, _textPainter.size.height);
     size = constraints.constrain(textSize);
 
     final bool didOverflowHeight =
