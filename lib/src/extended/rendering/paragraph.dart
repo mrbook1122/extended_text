@@ -7,6 +7,7 @@ import 'dart:ui';
 import 'package:extended_text/src/extended/gradient/gradient_config.dart';
 import 'package:extended_text/src/extended/widgets/text_overflow_widget.dart';
 import 'package:extended_text_library/extended_text_library.dart';
+import 'package:flutter/animation.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -95,6 +96,28 @@ class ExtendedRenderParagraph extends _RenderParagraph
     _placeholderDimensions = layoutInlineChildren(
         constraints.maxWidth, ChildLayoutHelper.layoutChild);
     _layoutTextWithConstraints(constraints);
+    if (_textPainter.maxLines != null) {
+      int newLines = _textPainter.maxLines!;
+      final List<ui.LineMetrics> lines = _textPainter.computeLineMetrics();
+      for (int i = lines.length - 1; i > 0; i--) {
+        final ui.LineMetrics line = lines[i];
+        if (line.width > 0) {
+          if (line.width < 150) {
+            _clipText = false;
+            _lastLineWidth = line.width;
+            _lastLineHeight = line.height;
+          }
+          break;
+        }
+        if (newLines > 1) {
+          newLines--;
+        }
+      }
+      if (newLines != _textPainter.maxLines) {
+        _textPainter.maxLines = newLines;
+        _layoutTextWithConstraints(constraints);
+      }
+    }
     positionInlineChildren(_textPainter.inlinePlaceholderBoxes!);
 
     // We grab _textPainter.size and _textPainter.didExceedMaxLines here because
@@ -102,7 +125,7 @@ class ExtendedRenderParagraph extends _RenderParagraph
     // which will change _textPainter's layout because the intrinsic size
     // calculations are destructive. Other _textPainter state will also be
     // affected. See also RenderEditable which has a similar issue.
-    final Size textSize = _textPainter.size;
+    final Size textSize = Size(constraints.maxWidth, _textPainter.size.height);
     final bool textDidExceedMaxLines = _textPainter.didExceedMaxLines;
     size = constraints.constrain(textSize);
 

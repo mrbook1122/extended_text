@@ -14,6 +14,11 @@ mixin TextOverflowMixin on _RenderParagraph {
   List<Rect>? _overflowRects;
   TextSelection? _overflowSelection;
   bool _hasVisualOverflow = false;
+  bool _clipText = true;
+  double? _lastLineWidth;
+  double? _lastLineHeight;
+  double? _clipTextTop;
+  double? _clipTextBottom;
   // Retuns a cached plain text version of the text in the painter.
 
   TextOverflowWidget? get overflowWidget => _overflowWidget;
@@ -87,6 +92,13 @@ mixin TextOverflowMixin on _RenderParagraph {
           extentOffset:
               _textPainter.getPositionForOffset(rect.bottomRight).offset,
         );
+
+
+        if (!_clipText && _lastLineWidth != null && _lastLineHeight != null) {
+          textParentData._offset = rect.bottomLeft + Offset(_lastLineWidth!, -_lastLineHeight!);
+          _overflowRect = textParentData.offset! & overflowWidgetSize;
+          return;
+        }
 
         textParentData._offset = rect.bottomRight -
             Offset(overflowWidgetSize.width, overflowWidgetSize.height);
