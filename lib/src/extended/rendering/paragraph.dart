@@ -30,6 +30,8 @@ class _TextParentData extends TextParentData {
 ///
 class ExtendedRenderParagraph extends _RenderParagraph
     with TextOverflowMixin, SelectionMixin, GradientMixin {
+  int? _configuredMaxLines;
+
   ExtendedRenderParagraph(
     super.text, {
     super.textAlign = TextAlign.start,
@@ -54,6 +56,13 @@ class ExtendedRenderParagraph extends _RenderParagraph
     _canSelectPlaceholderSpan = canSelectPlaceholderSpan;
     _gradientConfig = gradientConfig;
     _textCache = text;
+    _configuredMaxLines = maxLines;
+  }
+
+  @override
+  set maxLines(int? value) {
+    _configuredMaxLines = value;
+    super.maxLines = value;
   }
 
   @override
@@ -99,6 +108,9 @@ class ExtendedRenderParagraph extends _RenderParagraph
       (_SelectableFragment element) => element.didChangeParagraphLayout(),
     );
     final BoxConstraints constraints = this.constraints;
+    if (_textPainter.maxLines != _configuredMaxLines) {
+      _textPainter.maxLines = _configuredMaxLines;
+    }
     _placeholderDimensions = layoutInlineChildren(
       constraints.maxWidth,
       ChildLayoutHelper.layoutChild,
@@ -108,9 +120,26 @@ class ExtendedRenderParagraph extends _RenderParagraph
       _textPainter.text = _textCache;
     }    
     _layoutTextWithConstraints(constraints);
+    if (_textPainter.maxLines != null) {
+      int newLines = _textPainter.maxLines!;
+      final List<ui.LineMetrics> lines = _textPainter.computeLineMetrics();
+      for (int i = lines.length - 1; i > 0; i--) {
+        final ui.LineMetrics line = lines[i];
+        if (line.width > 0) {
+          break;
+        }
+        if (newLines > 1) {
+          newLines--;
+        }
+      }
+      if (newLines != _textPainter.maxLines) {
+        _textPainter.maxLines = newLines;
+        _layoutTextWithConstraints(constraints);
+      }
+    }
     positionInlineChildren(_textPainter.inlinePlaceholderBoxes!);
 
-    final Size textSize = _textPainter.size;
+    final Size textSize = Size(constraints.maxWidth, _textPainter.size.height);
     size = constraints.constrain(textSize);
 
     final bool didOverflowHeight =
