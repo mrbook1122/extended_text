@@ -28,6 +28,9 @@ mixin TextOverflowMixin on _RenderParagraph {
   List<Rect>? _overflowClipTextRects;
   List<Rect>? _overflowRects;
   List<_TextRange>? _overflowSelections;
+  bool _clipText = true;
+  double? _clipTextTop;
+  double? _clipTextBottom;
 
   bool _hasVisualOverflow = false;
   // Retuns a cached plain text version of the text in the painter.
@@ -564,7 +567,7 @@ mixin TextOverflowMixin on _RenderParagraph {
   }
 
   List<Rect> _getOverflowRect(TextOverflowPosition position) {
-    final double textWidth = _textPainter.width;
+    double textWidth = _textPainter.width;
 
     final List<Rect> overflowWidgetRects = <Rect>[];
 
@@ -622,11 +625,17 @@ mixin TextOverflowMixin on _RenderParagraph {
             final ui.LineMetrics line = lines[index];
             lineTop += line.height;
           }
+          _clipTextTop = lineTop;
+          _clipTextBottom = lineTop + line.height;
+          if (line.width < 150) {
+            _clipText = false;
+          }
+          textWidth = line.width;
           final double lineCenter = lineTop + line.height / 2;
           overflowWidgetRects.add(Rect.fromLTRB(
-            textWidth - overflowWidgetSize.width,
+            _clipText ? textWidth - overflowWidgetSize.width : textWidth,
             lineCenter - overflowWidgetSize.height / 2,
-            textWidth,
+            _clipText ? textWidth : textWidth + overflowWidgetSize.width,
             lineCenter + overflowWidgetSize.height / 2,
           ));
         }
@@ -676,66 +685,71 @@ mixin TextOverflowMixin on _RenderParagraph {
       final _TextParentData parentData =
           overflowChild.parentData as _TextParentData;
       final ui.Size overflowWidgetSize = overflowChild.size;
-      final double x = overflowWidgetRect.width / 5;
+      final double x = 0;
 
-      int start = _textPainter
-          .getPositionForOffset(Offset(overflowWidgetRect.left - x,
-              overflowWidgetRect.top + overflowWidgetSize.height / 2))
-          .offset;
-      int end = _textPainter
-          .getPositionForOffset(Offset(overflowWidgetRect.right + x,
-              overflowWidgetRect.top + overflowWidgetSize.height / 2))
-          .offset;
-
-      final List<ui.TextBox> rects = _textPainter.getBoxesForSelection(
-        TextSelection(
-          baseOffset: start,
-          extentOffset: end,
-        ),
-        // boxHeightStyle: ui.BoxHeightStyle.max,
-        // boxWidthStyle: ui.BoxWidthStyle.max,
-      );
-
+      int start = 0;
+      int end = 0;
       double rectLeft = overflowWidgetRect.left;
       double rectRight = overflowWidgetRect.right;
-      for (int index = 0; index < rects.length; index++) {
-        final ui.TextBox rect = rects[index];
-        double left = math.max(rect.left, overflowWidgetRect.left);
-        double right = math.min(rect.right, overflowWidgetRect.right);
 
-        if (left < right) {
-          if (left > rect.left) {
-            left = rect.left;
-          }
-          if (right < rect.right) {
-            right = rect.right;
-          }
+      if (_clipText) {
+        start = _textPainter
+            .getPositionForOffset(Offset(overflowWidgetRect.left - x,
+            overflowWidgetRect.top + overflowWidgetSize.height / 2))
+            .offset;
+        end = _textPainter
+            .getPositionForOffset(Offset(overflowWidgetRect.right + x,
+            overflowWidgetRect.top + overflowWidgetSize.height / 2))
+            .offset;
 
-          final ui.Rect clipRect = Rect.fromLTRB(
-            left,
-            rect.top,
-            right,
-            rect.bottom,
-          );
-          rectLeft = math.min(rectLeft, clipRect.left);
-          rectRight = math.max(rectRight, clipRect.right);
-          _overflowClipTextRects!.add(clipRect);
+        final List<ui.TextBox> rects = _textPainter.getBoxesForSelection(
+          TextSelection(
+            baseOffset: start,
+            extentOffset: end,
+          ),
+          // boxHeightStyle: ui.BoxHeightStyle.max,
+          // boxWidthStyle: ui.BoxWidthStyle.max,
+        );
+
+        for (int index = 0; index < rects.length; index++) {
+          final ui.TextBox rect = rects[index];
+          double left = math.max(rect.left, overflowWidgetRect.left);
+          double right = math.min(rect.right, overflowWidgetRect.right);
+
+          if (left < right) {
+            if (left > rect.left) {
+              left = rect.left;
+            }
+            if (right < rect.right) {
+              right = rect.right;
+            }
+
+            final ui.Rect clipRect = Rect.fromLTRB(
+              left,
+              rect.top,
+              right,
+              rect.bottom,
+            );
+            rectLeft = math.min(rectLeft, clipRect.left);
+            rectRight = math.max(rectRight, clipRect.right);
+            _overflowClipTextRects!.add(clipRect);
+          }
         }
       }
 
-      switch (overflowWidget!.align) {
-        case TextOverflowAlign.left:
-          break;
-        case TextOverflowAlign.right:
-          rectLeft = rectRight - overflowWidgetSize.width;
-          break;
-        case TextOverflowAlign.center:
-          rectLeft = rectLeft +
-              (rectRight - rectLeft) / 2 -
-              overflowWidgetSize.width / 2;
-          break;
-        default:
-      }
+      // switch (overflowWidget!.align) {
+      //   case TextOverflowAlign.left:
+      //     break;
+      //   case TextOverflowAlign.right:
+      //     rectLeft = rectRight - overflowWidgetSize.width;
+      //     break;
+      //   case TextOverflowAlign.center:
+      //     rectLeft = rectLeft +
+      //         (rectRight - rectLeft) / 2 -
+      //         overflowWidgetSize.width / 2;
+      //     break;
+      //   default:
+      // }
       overflowWidgetRect = Rect.fromLTRB(
         rectLeft,
         overflowWidgetRect.top,
